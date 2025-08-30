@@ -1,0 +1,125 @@
+# 1. Build a Redis Computer
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: redis-deployment
+  labels:
+    app: redis
+    tier: database
+    version: v1.0.0
+spec:
+  replicas: 1  # Redis typically runs as single instance (or use Redis Cluster for HA)
+  selector:
+    matchLabels:
+      app: redis
+  template:
+    metadata:
+      labels:
+        app: redis
+        tier: database
+        version: v1.0.0
+    spec:
+      containers:
+      - name: redis
+        image: redis:7-alpine
+        ports:
+        - containerPort: 6379
+          name: redis
+        
+        # Redis configuration
+        command:
+        - redis-server
+        - --appendonly
+        - "yes"
+        - --save
+        - "60 1"  # Save snapshot every 60 seconds if at least 1 key changed
+        
+        # Resource limits and requests
+        resources:
+          requests:
+            memory: "128Mi"
+            cpu: "100m"
+          limits:
+            memory: "512Mi"
+            cpu: "300m"
+        
+        # Health checks
+        livenessProbe:
+          tcpSocket:
+            port: 6379
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+        
+        readinessProbe:
+          exec:
+            command:
+            - redis-cli
+            - ping
+          initialDelaySeconds: 5
+          periodSeconds: 5
+          timeoutSeconds: 3
+          failureThreshold: 3
+        
+        # Volume mount for persistence
+        volumeMounts:
+        - name: redis-data
+          mountPath: /data
+        
+        # Security context
+        securityContext:
+          runAsNonRoot: true
+          runAsUser: 999  # redis user
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: false  # Redis needs to write to /data
+      
+      # Pod-level security context
+      securityContext:
+        fsGroup: 999
+      
+      # Volumes
+      volumes:
+      - name: redis-data
+        persistentVolumeClaim:
+          claimName: redis-pvc
+      
+      # Restart policy
+      restartPolicy: Always
+
+---
+# 2. Give Redis a phone number, a network identity
+apiVersion: v1
+kind: Service
+metadata:
+  name: redis-service
+  labels:
+    app: redis
+    tier: database
+spec:
+  type: ClusterIP
+  ports:
+  - port: 6379
+    targetPort: 6379
+    protocol: TCP
+    name: redis
+  selector:
+    app: redis
+
+---
+# 3. Give Redis a a hard drive, a place to store its data
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: redis-pvc
+  labels:
+    app: redis
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 5Gi
+  # Uncomment for specific storage class
+  # storageClassName: gp2  # AWS EBS
+  # storageClassName: standard  # GCP persistent disk

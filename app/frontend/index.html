@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SRE/DevOps Learning App</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+        .container {
+            background: rgba(255, 255, 255, 0.1);
+            padding: 30px;
+            border-radius: 10px;
+            backdrop-filter: blur(10px);
+        }
+        .status {
+            background: rgba(0, 255, 0, 0.2);
+            padding: 10px;
+            border-radius: 5px;
+            margin: 20px 0;
+        }
+        .metrics {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin: 20px 0;
+        }
+        .metric {
+            background: rgba(255, 255, 255, 0.1);
+            padding: 15px;
+            border-radius: 5px;
+            text-align: center;
+        }
+        button {
+            background: #4CAF50;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover {
+            background: #45a049;
+        }
+        .error {
+            background: rgba(255, 0, 0, 0.2);
+            padding: 10px;
+            border-radius: 5px;
+            margin: 10px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🚀 SRE/DevOps Learning App</h1>
+        <p>This is a production-ready application demonstrating:</p>
+        <ul>
+            <li>Frontend (HTML/JS) served by Nginx</li>
+            <li>Backend (Flask API) with health checks</li>
+            <li>Docker containerization</li>
+            <li>Kubernetes deployment</li>
+            <li>Monitoring with Prometheus metrics</li>
+            <li>CI/CD with GitHub Actions</li>
+        </ul>
+
+        <div class="status" id="status">
+            📡 Checking backend connection...
+        </div>
+
+        <div class="metrics">
+            <div class="metric">
+                <h3>Backend Status</h3>
+                <div id="backend-status">Checking...</div>
+            </div>
+            <div class="metric">
+                <h3>Request Count</h3>
+                <div id="request-count">-</div>
+            </div>
+            <div class="metric">
+                <h3>Response Time</h3>
+                <div id="response-time">-</div>
+            </div>
+            <div class="metric">
+                <h3>Uptime</h3>
+                <div id="uptime">-</div>
+            </div>
+        </div>
+
+        <div>
+            <button onclick="checkHealth()">🏥 Health Check</button>
+            <button onclick="fetchMetrics()">📊 Fetch Metrics</button>
+            <button onclick="generateLoad()">⚡ Generate Load</button>
+        </div>
+
+        <div id="error-log"></div>
+    </div>
+
+    <script>
+        const API_BASE = '/api';
+
+        async function apiCall(endpoint) {
+            try {
+                const response = await fetch(`${API_BASE}${endpoint}`);
+                if (!response.ok) throw new Error(`HTTP ${response.status}`);
+                return await response.json();
+            } catch (error) {
+                console.error('API call failed:', error);
+                showError(`API Error: ${error.message}`);
+                return null;
+            }
+        }
+
+        async function checkHealth() {
+            const data = await apiCall('/health');
+            if (data) {
+                document.getElementById('backend-status').textContent = '✅ Healthy';
+                document.getElementById('status').textContent = '✅ Backend is responding!';
+                document.getElementById('status').className = 'status';
+            } else {
+                document.getElementById('backend-status').textContent = '❌ Unhealthy';
+                document.getElementById('status').textContent = '❌ Backend is not responding';
+                document.getElementById('status').className = 'status error';
+            }
+        }
+
+        async function fetchMetrics() {
+            const data = await apiCall('/metrics-json');
+            if (data) {
+                document.getElementById('request-count').textContent = data.requests_total || '-';
+                document.getElementById('response-time').textContent = 
+                    data.response_time_avg ? `${data.response_time_avg.toFixed(2)}ms` : '-';
+                document.getElementById('uptime').textContent = 
+                    data.uptime ? `${Math.floor(data.uptime / 60)}m ${Math.floor(data.uptime % 60)}s` : '-';
+            }
+        }
+
+        async function generateLoad() {
+            const requests = 10;
+            for (let i = 0; i < requests; i++) {
+                apiCall('/load-test');
+                await new Promise(resolve => setTimeout(resolve, 100));
+            }
+            showError(`Generated ${requests} test requests`);
+            setTimeout(fetchMetrics, 500);
+        }
+
+        function showError(message) {
+            const errorLog = document.getElementById('error-log');
+            const errorDiv = document.createElement('div');
+            errorDiv.className = message.includes('Error') ? 'error' : 'status';
+            errorDiv.textContent = `${new Date().toLocaleTimeString()}: ${message}`;
+            errorLog.appendChild(errorDiv);
+            setTimeout(() => errorDiv.remove(), 5000);
+        }
+
+        // Initialize
+        checkHealth();
+        fetchMetrics();
+        
+        // Auto-refresh every 30 seconds
+        setInterval(() => {
+            checkHealth();
+            fetchMetrics();
+        }, 30000);
+    </script>
+</body>
+</html>

@@ -1,0 +1,177 @@
+{
+  "dashboard": {
+    "id": null,
+    "title": "SRE Learning App Dashboard",
+    "tags": ["sre", "devops", "learning"],
+    "style": "dark",
+    "timezone": "browser",
+    "refresh": "30s",
+    "time": {
+      "from": "now-1h",
+      "to": "now"
+    },
+    "panels": [
+      {
+        "id": 1,
+        "title": "Application Health",
+        "type": "stat",
+        "targets": [
+          {
+            "expr": "up{job=\"flask-backend-local\"}",
+            "legendFormat": "Backend Status",
+            "refId": "A"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "color": {
+              "mode": "thresholds"
+            },
+            "thresholds": {
+              "steps": [
+                {"color": "red", "value": 0},
+                {"color": "green", "value": 1}
+              ]
+            },
+            "mappings": [
+              {"options": {"0": {"text": "Down"}}, "type": "value"},
+              {"options": {"1": {"text": "Up"}}, "type": "value"}
+            ]
+          }
+        },
+        "gridPos": {"h": 4, "w": 6, "x": 0, "y": 0}
+      },
+      {
+        "id": 2,
+        "title": "Request Rate (req/min)",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "rate(requests_total[5m]) * 60",
+            "legendFormat": "Requests/min",
+            "refId": "A"
+          }
+        ],
+        "yAxes": [
+          {"label": "Requests/min", "min": 0},
+          {"show": false}
+        ],
+        "gridPos": {"h": 8, "w": 12, "x": 6, "y": 0}
+      },
+      {
+        "id": 3,
+        "title": "Error Rate",
+        "type": "stat",
+        "targets": [
+          {
+            "expr": "rate(errors_total[5m])",
+            "legendFormat": "Errors/sec",
+            "refId": "A"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "color": {"mode": "thresholds"},
+            "thresholds": {
+              "steps": [
+                {"color": "green", "value": 0},
+                {"color": "yellow", "value": 0.1},
+                {"color": "red", "value": 1}
+              ]
+            },
+            "unit": "reqps"
+          }
+        },
+        "gridPos": {"h": 4, "w": 6, "x": 18, "y": 0}
+      },
+      {
+        "id": 4,
+        "title": "Response Time",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "response_time_avg",
+            "legendFormat": "Average Response Time (ms)",
+            "refId": "A"
+          }
+        ],
+        "yAxes": [
+          {"label": "Milliseconds", "min": 0},
+          {"show": false}
+        ],
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 8}
+      },
+      {
+        "id": 5,
+        "title": "Memory Usage",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "memory_usage_mb",
+            "legendFormat": "Memory (MB)",
+            "refId": "A"
+          }
+        ],
+        "yAxes": [
+          {"label": "Megabytes", "min": 0},
+          {"show": false}
+        ],
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 8}
+      },
+      {
+        "id": 6,
+        "title": "CPU Usage",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "cpu_percent",
+            "legendFormat": "CPU %",
+            "refId": "A"
+          }
+        ],
+        "yAxes": [
+          {"label": "Percent", "min": 0, "max": 100},
+          {"show": false}
+        ],
+        "gridPos": {"h": 6, "w": 8, "x": 0, "y": 16}
+      },
+      {
+        "id": 7,
+        "title": "Application Uptime",
+        "type": "stat",
+        "targets": [
+          {
+            "expr": "uptime_seconds / 3600",
+            "legendFormat": "Uptime (hours)",
+            "refId": "A"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "color": {"mode": "continuous-GrYlRd"},
+            "unit": "h"
+          }
+        },
+        "gridPos": {"h": 6, "w": 8, "x": 8, "y": 16}
+      },
+      {
+        "id": 8,
+        "title": "Total Requests",
+        "type": "stat",
+        "targets": [
+          {
+            "expr": "requests_total",
+            "legendFormat": "Total Requests",
+            "refId": "A"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "color": {"mode": "continuous-BlYlRd"}
+          }
+        },
+        "gridPos": {"h": 6, "w": 8, "x": 16, "y": 16}
+      }
+    ]
+  }
+}

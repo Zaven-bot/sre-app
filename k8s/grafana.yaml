@@ -1,0 +1,183 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: grafana-config
+  labels:
+    app: grafana
+data:
+  # How to set up Grafana 
+  grafana.ini: |
+    [analytics]
+    check_for_updates = true
+    
+    [grafana_net]
+    url = https://grafana.net
+    
+    [log]
+    mode = console
+    
+    [paths]
+    data = /var/lib/grafana/data
+    logs = /var/log/grafana
+    plugins = /var/lib/grafana/plugins
+    provisioning = /etc/grafana/provisioning
+
+  # How to connect to Prometheus
+  datasources.yaml: |
+    apiVersion: 1
+    datasources:
+    - name: Prometheus
+      type: prometheus
+      access: proxy
+      url: http://prometheus-service:9090
+      isDefault: true
+      editable: true
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: grafana-deployment
+  labels:
+    app: grafana
+    tier: monitoring
+    version: v1.0.0
+spec:
+  replicas: 1          # "Build 1 Grafana computer"
+  selector:
+    matchLabels:
+      app: grafana
+  template:
+    metadata:
+      labels:
+        app: grafana
+        tier: monitoring
+        version: v1.0.0
+    spec:
+      containers:
+      - name: grafana
+        image: grafana/grafana:latest # Install Grafana software
+        ports:
+        - containerPort: 3000 # Open door 3000 for visitors
+          name: grafana
+        
+        # Environment variables
+        env:
+        - name: GF_SECURITY_ADMIN_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: grafana-secret # Get password from secret hiding place
+              key: admin-password
+        - name: GF_USERS_ALLOW_SIGN_UP
+          value: "false"
+        - name: GF_INSTALL_PLUGINS
+          value: "grafana-piechart-panel,grafana-worldmap-panel" # Don't let strangers create accounts
+        
+        # Resource limits and requests
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "100m"
+          limits:
+            memory: "512Mi"
+            cpu: "300m"
+        
+        # Health checks
+        livenessProbe:
+          httpGet:
+            path: /api/health
+            port: 3000
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+        
+        readinessProbe:
+          httpGet:
+            path: /api/health
+            port: 3000
+          initialDelaySeconds: 10
+          periodSeconds: 5
+          timeoutSeconds: 3
+          failureThreshold: 3
+        
+        # Volume mounts
+        volumeMounts:
+        - name: grafana-data
+          mountPath: /var/lib/grafana # Save dashboards data here
+        - name: grafana-config
+          mountPath: /etc/grafana/grafana.ini # Plug in recipe book here
+          subPath: grafana.ini # Only use recipe 1
+        - name: grafana-config 
+          mountPath: /etc/grafana/provisioning/datasources/datasources.yaml
+          subPath: datasources.yaml # Use recipe 2 here
+        
+        # Security context
+        securityContext:
+          runAsNonRoot: true
+          runAsUser: 472  # grafana user
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: false
+      
+      # Volumes
+      volumes:
+      - name: grafana-data
+        persistentVolumeClaim:
+          claimName: grafana-pvc # Big hard drive for saving stuff
+      - name: grafana-config
+        configMap:
+          name: grafana-config # Recipe book for 2 config recipes
+      
+      # Pod-level security context
+      securityContext:
+        fsGroup: 472
+      
+      # Restart policy
+      restartPolicy: Always
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: grafana-service
+  labels:
+    app: grafana
+    tier: monitoring
+spec:
+  type: ClusterIP
+  ports:
+  - port: 3000 # Grafana's phone #
+    targetPort: 3000 # When someone calls, forward to door 3000 on the computer with grafana sticker
+    protocol: TCP
+    name: grafana
+  selector:
+    app: grafana
+
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: grafana-pvc
+  labels:
+    app: grafana
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 5Gi # Can I have 5Gi of space to save dashboards?
+  # Uncomment for specific storage class
+  # storageClassName: gp2  # AWS EBS
+
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: grafana-secret
+  labels:
+    app: grafana
+type: Opaque
+data:
+  # admin password base64 encoded ("admin" = "YWRtaW4=")
+  # Change this in production!
+  admin-password: YWRtaW4=
