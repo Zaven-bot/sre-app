@@ -1,0 +1,332 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME_FRONTEND: ${{ github.repository }}/frontend
+  IMAGE_NAME_BACKEND: ${{ github.repository }}/backend
+
+jobs:
+  # ===========================================
+  # PHASE 1: CODE QUALITY & LINTING
+  # ===========================================
+  lint:
+    name: Code Quality & Linting
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+
+      # Python linting (using your existing backend)
+      - name: Install Python linting tools
+        run: |
+          python -m pip install --upgrade pip
+          pip install flake8 black pylint
+          pip install -r app/backend/requirements.txt
+
+      - name: Lint Python code with flake8
+        run: |
+          # stop the build if there are Python syntax errors or undefined names
+          flake8 app/backend --count --select=E9,F63,F7,F82 --show-source --statistics
+          # exit-zero treats all errors as warnings
+          flake8 app/backend --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
+
+      - name: Check Python code formatting with black
+        run: |
+          black --check app/backend
+
+      - name: Lint with pylint
+        run: |
+          pylint app/backend --exit-zero
+
+      # TODO: Add more comprehensive linting
+      - name: "[PLACEHOLDER] Infrastructure as Code Linting"
+        run: |
+          echo "🔍 TODO: Add Dockerfile linting with hadolint"
+          echo "📝 TODO: Add K8s manifest validation with kubeval"
+          echo "📝 TODO: Add YAML linting"
+
+  # ===========================================
+  # PHASE 2: SECURITY SCANNING
+  # ===========================================
+  security:
+    name: Security Scan
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # Basic security scanning with Trivy
+      - name: Run Trivy vulnerability scanner (filesystem)
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: 'fs'
+          scan-ref: '.'
+          exit-code: '0'  # Don't fail build on vulnerabilities yet
+
+      # TODO: Add more comprehensive security scanning
+      - name: "[PLACEHOLDER] Advanced Security Scanning"
+        run: |
+          echo "🔒 TODO: Add Python dependency scanning with safety"
+          echo "🔒 TODO: Add secret detection with truffleHog"
+          echo "🔒 TODO: Add SAST scanning with CodeQL"
+
+  # ===========================================
+  # PHASE 3: UNIT & COMPONENT TESTING
+  # ===========================================
+  test:
+    name: Unit Tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+
+      # Run your existing backend tests
+      - name: Install Python dependencies
+        run: |
+          cd app/backend
+          pip install -r requirements.txt
+          pip install pytest pytest-cov
+
+      - name: Run Backend Unit Tests
+        run: |
+          cd app/backend
+          python -m pytest test_app.py -v --cov=app --cov-report=xml
+
+      # TODO: Add more comprehensive testing
+      - name: "[PLACEHOLDER] Extended Testing Suite"
+        run: |
+          echo "🧪 TODO: Add frontend unit tests (if adding JS frameworks)"
+          echo "📊 TODO: Upload coverage to Codecov"
+          echo "🧪 TODO: Add API contract testing"
+
+  # ===========================================
+  # PHASE 4: BUILD DOCKER IMAGES
+  # ===========================================
+  build:
+    name: Build Docker Images
+    runs-on: ubuntu-latest
+    needs: [lint, security, test]
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # Build backend image (using your existing Dockerfile.backend)
+      - name: Build Backend Image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: docker/Dockerfile.backend
+          push: true
+          tags: |
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME_BACKEND }}:latest
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME_BACKEND }}:${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      # Build frontend image (using your existing Dockerfile.frontend)
+      - name: Build Frontend Image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: docker/Dockerfile.frontend
+          push: true
+          tags: |
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME_FRONTEND }}:latest
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME_FRONTEND }}:${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      # Container security scanning
+      - name: Scan Backend Image for vulnerabilities
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME_BACKEND }}:${{ github.sha }}
+          exit-code: '0'  # Don't fail build on vulnerabilities yet
+
+      - name: Scan Frontend Image for vulnerabilities
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME_FRONTEND }}:${{ github.sha }}
+          exit-code: '0'  # Don't fail build on vulnerabilities yet
+
+  # ===========================================
+  # PHASE 5: INTEGRATION TESTING
+  # ===========================================
+  integration-test:
+    name: Integration Tests
+    runs-on: ubuntu-latest
+    needs: [build]
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Log in to Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # Test with your existing docker-compose.yml but using built images
+      - name: Run Integration Tests with Docker Compose
+        run: |
+          # Create a test version of docker-compose that uses the built images
+          cp docker/docker-compose.yml docker/docker-compose.test.yml
+          
+          # Update image references to use the built images from registry
+          sed -i "s|build:|#build:|g" docker/docker-compose.test.yml
+          sed -i "s|context: ..|#context: ..|g" docker/docker-compose.test.yml
+          sed -i "s|dockerfile: docker/Dockerfile.backend|#dockerfile: docker/Dockerfile.backend|g" docker/docker-compose.test.yml
+          sed -i "s|dockerfile: docker/Dockerfile.frontend|#dockerfile: docker/Dockerfile.frontend|g" docker/docker-compose.test.yml
+          
+          # Add image references
+          sed -i "s|#build:|image: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME_BACKEND }}:${{ github.sha }}|g" docker/docker-compose.test.yml
+          sed -i "s|#build:|image: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME_FRONTEND }}:${{ github.sha }}|g" docker/docker-compose.test.yml
+          
+          # Start the full stack
+          docker-compose -f docker/docker-compose.test.yml up -d
+          
+          # Wait for services to be ready
+          echo "⏳ Waiting for services to start..."
+          sleep 45
+          
+          # Run health checks based on your actual endpoints
+          echo "🏥 Running health checks..."
+          curl -f http://localhost:6000/health || (echo "❌ Backend health check failed" && exit 1)
+          curl -f http://localhost:80/health || (echo "❌ Frontend health check failed" && exit 1)
+          
+          # Test API endpoints
+          echo "🧪 Testing API endpoints..."
+          curl -f http://localhost:6000/api/data || (echo "❌ API endpoint test failed" && exit 1)
+          
+          echo "✅ All integration tests passed!"
+          
+          # Show logs for debugging
+          docker-compose -f docker/docker-compose.test.yml logs
+          
+          # Cleanup
+          docker-compose -f docker/docker-compose.test.yml down
+
+      # TODO: Add more comprehensive integration testing
+      - name: "[PLACEHOLDER] Advanced Integration Testing"
+        run: |
+          echo "🧪 TODO: Add end-to-end testing with Playwright/Cypress"
+          echo "⚡ TODO: Add load testing with k6"
+          echo "📊 TODO: Add performance benchmarks"
+
+  # ===========================================
+  # DEPLOYMENT SECTION (COMMENTED OUT)
+  # Choose your deployment strategy below
+  # ===========================================
+
+  # OPTION 1: LOCAL/DEVELOPMENT DEPLOYMENT
+  # Uncomment this section if you want to deploy to a local K8s cluster
+  # deploy-local:
+  #   name: Deploy to Local K8s
+  #   runs-on: ubuntu-latest
+  #   needs: [integration-test]
+  #   if: github.ref == 'refs/heads/develop'
+  #   steps:
+  #   - name: Checkout code
+  #     uses: actions/checkout@v4
+  #   
+  #   - name: Update K8s manifests with new image tags
+  #     run: |
+  #       # Update your K8s deployments to use the new images
+  #       sed -i 's|image: sre-learning-app-backend:latest|image: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME_BACKEND }}:${{ github.sha }}|' k8s/deployment-backend.yaml
+  #       sed -i 's|image: sre-learning-app-frontend:latest|image: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME_FRONTEND }}:${{ github.sha }}|' k8s/deployment-frontend.yaml
+  #   
+  #   - name: "[PLACEHOLDER] Deploy to Local K8s"
+  #     run: |
+  #       echo "🚀 TODO: Configure kubectl connection to your local cluster"
+  #       echo "📦 TODO: Apply K8s manifests: kubectl apply -f k8s/"
+  #       echo "⏳ TODO: Wait for rollout: kubectl rollout status deployment/backend-deployment"
+
+  # OPTION 2: AWS EKS DEPLOYMENT
+  # Uncomment and configure this section when you're ready for AWS
+  # deploy-aws-staging:
+  #   name: Deploy to AWS EKS (Staging)
+  #   runs-on: ubuntu-latest
+  #   needs: [integration-test]
+  #   if: github.ref == 'refs/heads/main'
+  #   environment: staging
+  #   steps:
+  #   - name: Checkout code
+  #     uses: actions/checkout@v4
+  #   
+  #   - name: "[PLACEHOLDER] Configure AWS credentials"
+  #     run: |
+  #       echo "🔑 TODO: Add AWS_ACCESS_KEY_ID to GitHub secrets"
+  #       echo "🔑 TODO: Add AWS_SECRET_ACCESS_KEY to GitHub secrets"
+  #       echo "🔑 TODO: Configure aws-actions/configure-aws-credentials@v4"
+  #   
+  #   - name: "[PLACEHOLDER] Configure kubectl for EKS"
+  #     run: |
+  #       echo "☸️  TODO: Create EKS cluster with Terraform (infra/aws/main.tf)"
+  #       echo "⚙️  TODO: aws eks update-kubeconfig --region us-west-2 --name your-cluster-name"
+  #   
+  #   - name: "[PLACEHOLDER] Deploy to EKS"
+  #     run: |
+  #       echo "📦 TODO: Apply K8s manifests to EKS"
+  #       echo "🔄 TODO: Update image tags in K8s manifests"
+  #       echo "⏳ TODO: Wait for rollout completion"
+
+  # OPTION 3: OTHER CLOUD PROVIDERS
+  # deploy-gcp:
+  #   name: Deploy to Google Cloud (GKE)
+  #   # TODO: Configure GKE deployment
+  #
+  # deploy-azure:
+  #   name: Deploy to Azure (AKS)
+  #   # TODO: Configure AKS deployment
+
+# ===========================================
+# NEXT STEPS & RECOMMENDATIONS
+# ===========================================
+# 
+# 1. 🎯 IMMEDIATE FOCUS (Week 1-2):
+#    - Get this basic CI/CD pipeline working
+#    - Fix any linting/testing issues
+#    - Ensure Docker builds work properly
+#
+# 2. 🔧 ENHANCEMENT PHASE (Week 3-4):
+#    - Add more comprehensive tests
+#    - Implement proper security scanning
+#    - Add performance testing
+#
+# 3. ☁️  CLOUD DEPLOYMENT (Month 2):
+#    - Decide: AWS EKS vs GCP GKE vs Azure AKS
+#    - Set up Terraform infrastructure (infra/aws/main.tf)
+#    - Configure cloud-specific deployment
+#
+# 4. 🚀 ADVANCED FEATURES (Month 3+):
+#    - GitOps with ArgoCD/Flux
+#    - Canary deployments
+#    - Multi-environment promotion
+#    - Monitoring & alerting integration

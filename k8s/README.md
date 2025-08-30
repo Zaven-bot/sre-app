@@ -2,7 +2,7 @@
 
 This directory contains production-ready Kubernetes manifests for the complete SRE Learning Application stack.
 
-## 🏗️ Architecture
+## Architecture
 
 ```
 ┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
@@ -20,7 +20,7 @@ This directory contains production-ready Kubernetes manifests for the complete S
 └─────────────────┘    └─────────────────┘
 ```
 
-## 📋 Components
+## Components
 
 ### Core Application
 - **Frontend**: Nginx serving static files with API proxy
@@ -39,69 +39,7 @@ This directory contains production-ready Kubernetes manifests for the complete S
 - **Resource Limits**: CPU and memory constraints
 - **Security Contexts**: Non-root containers
 
-## 🚀 Quick Start
-
-### Prerequisites
-
-1. **Kubernetes Cluster** (local or cloud):
-   ```bash
-   # Local with minikube
-   minikube start --memory=4g --cpus=4
-   
-   # Or kind
-   kind create cluster --config=kind-config.yaml
-   
-   # Or AWS EKS, GKE, AKS
-   ```
-
-2. **kubectl** configured to access your cluster
-
-3. **Application Images** built and available:
-   ```bash
-   # Build and tag images
-   cd /path/to/production-ready-app
-   docker build -t sre-learning-app/backend:latest -f docker/Dockerfile.backend .
-   docker build -t sre-learning-app/frontend:latest -f docker/Dockerfile.frontend .
-   
-   # For cloud deployment, push to registry:
-   # docker tag sre-learning-app/backend:latest your-registry/backend:latest
-   # docker push your-registry/backend:latest
-   ```
-
-### Deploy
-
-```bash
-# Simple one-command deployment
-./deploy.sh
-
-# Or step by step
-kubectl apply -f deployment-redis.yaml
-kubectl apply -f deployment-backend.yaml
-kubectl apply -f service-backend.yaml
-kubectl apply -f deployment-frontend.yaml
-kubectl apply -f service-frontend.yaml
-kubectl apply -f prometheus.yaml
-kubectl apply -f grafana.yaml
-kubectl apply -f hpa.yaml
-kubectl apply -f network-policies.yaml
-kubectl apply -f ingress.yaml
-```
-
-### Access
-
-After deployment, access your application:
-
-```bash
-# Check status
-./deploy.sh status
-
-# Port forwarding (if ingress not ready)
-kubectl port-forward svc/frontend-service 8080:80
-kubectl port-forward svc/prometheus-service 9090:9090
-kubectl port-forward svc/grafana-service 3000:3000
-```
-
-## 📁 File Descriptions
+## File Descriptions
 
 | File | Purpose |
 |------|---------|
@@ -117,7 +55,7 @@ kubectl port-forward svc/grafana-service 3000:3000
 | `ingress.yaml` | External access routing |
 | `deploy.sh` | Deployment automation script |
 
-## 🔧 Configuration
+## Configuration
 
 ### Environment Variables
 
@@ -153,37 +91,20 @@ Backend deployment includes these key environment variables:
 
 ### Grafana Access
 
-- **URL**: `/grafana` (via ingress) or `localhost:3000` (port-forward)
+- **URL**: `localhost:3000` (port-forward)
 - **Credentials**: `admin` / `admin` (change in production!)
 - **Data Source**: Prometheus automatically configured
 
-### Key Metrics
-
-- `requests_total` - Total HTTP requests
-- `errors_total` - Total errors
-- `response_time_avg` - Average response time
-- `memory_usage_mb` - Memory consumption
-- `cpu_percent` - CPU utilization
-
-## 🔐 Security
+## Security
 
 ### Network Policies
 
 - Backend: Only accessible from frontend and prometheus
 - Redis: Only accessible from backend
 - Prometheus: Can scrape backend, accessible from grafana
-- Grafana: Only accessible via ingress
+- Grafana: Only accessible via port forward
 
-### Security Contexts
-
-All containers run as non-root users:
-- Backend: User 1000
-- Frontend: User 101 (nginx)
-- Redis: User 999
-- Prometheus: User 65534 (nobody)
-- Grafana: User 472
-
-## 🎯 Scaling
+##  Scaling
 
 ### Horizontal Pod Autoscaler
 
@@ -193,45 +114,7 @@ Backend automatically scales based on:
 - Min replicas: 2
 - Max replicas: 10
 
-### Manual Scaling
-
-```bash
-# Scale backend manually
-kubectl scale deployment backend-deployment --replicas=5
-
-# Scale frontend
-kubectl scale deployment frontend-deployment --replicas=3
-```
-
-## 🐛 Troubleshooting
-
-### Common Issues
-
-1. **Images not found**:
-   ```bash
-   # Check if images exist
-   docker images | grep sre-learning-app
-   # Build if missing
-   docker build -t sre-learning-app/backend:latest -f docker/Dockerfile.backend .
-   ```
-
-2. **Pods not starting**:
-   ```bash
-   kubectl describe pod <pod-name>
-   kubectl logs <pod-name>
-   ```
-
-3. **Redis connection issues**:
-   ```bash
-   kubectl exec -it deployment/backend-deployment -- env | grep REDIS
-   kubectl exec -it deployment/redis-deployment -- redis-cli ping
-   ```
-
-4. **Prometheus not scraping**:
-   ```bash
-   kubectl port-forward svc/prometheus-service 9090:9090
-   # Check targets at http://localhost:9090/targets
-   ```
+## Troubleshooting
 
 ### Useful Commands
 
@@ -293,43 +176,9 @@ storageClassName: standard
 storageClassName: default
 ```
 
-## 🧹 Cleanup
-
-```bash
-# Remove all resources
-./deploy.sh cleanup
-
-# Or manually
-kubectl delete -f .
-```
-
-## 📚 Next Steps
-
-After successful deployment:
-
-1. **Set up CI/CD** with GitHub Actions
-2. **Configure monitoring alerts** in Prometheus
-3. **Add custom Grafana dashboards**
-4. **Implement backup strategies** for persistent data
-5. **Set up log aggregation** (ELK stack)
-6. **Configure certificate management** (cert-manager)
-7. **Add chaos engineering** tests
-
 ---
 
-## 🤝 Contributing
-
-This is a learning project. Feel free to:
-- Add more monitoring dashboards
-- Implement additional microservices
-- Enhance security policies
-- Add more sophisticated deployment strategies
-
-## 📄 License
-
-Educational use only. Part of SRE/DevOps learning curriculum.
-
-
+## .yaml Breakdowns
 
 deployment-backend.yaml:
 3 Backend Pods (computers)
@@ -384,15 +233,6 @@ ingress.yaml:
 2. LoadBalancer: frontend-loadbalancer (Simple alternative)
    └── Directly exposes frontend with cloud provider IP
 
-http://your-cluster-ip/           → Frontend (your main app)
-http://your-cluster-ip/api/data   → Backend API
-http://your-cluster-ip/health     → Health check
-http://your-cluster-ip/prometheus → Prometheus dashboard  
-http://your-cluster-ip/grafana    → Grafana dashboards
-
-The tons of comments are just examples for different cloud providers - ignore them for now!
-
-
 network-policies.yaml:
 1. Backend Security Guard
    ├── Visitors allowed: Frontend, Prometheus, External
@@ -413,18 +253,6 @@ network-policies.yaml:
 5. Frontend Security Guard
    ├── Visitors allowed: External ONLY
    └── Can visit: Backend, DNS
-
-🌐 Internet → Ingress → Frontend → Backend → Redis
-                         ↑         ↑
-                    (public)   (internal only)
-                         
-🔍 Prometheus → Backend (pulls /metrics)
-       ↓
-📊 Grafana ← Prometheus
-    ↑
-(public dashboards)
-
-
 
 prometheus.yaml:
 1. ConfigMap: prometheus-config

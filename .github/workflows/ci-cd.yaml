@@ -230,116 +230,116 @@ jobs:
         cd docker
         docker-compose -f docker-compose.test.yml down -v
 
-  # Deploy to staging (on main branch)
-  deploy-staging:
-    name: Deploy to Staging
-    runs-on: ubuntu-latest
-    needs: [build, integration-test]
-    if: github.ref == 'refs/heads/main'
-    environment: staging
-    steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
+  # # Deploy to staging (on main branch)
+  # deploy-staging:
+  #   name: Deploy to Staging
+  #   runs-on: ubuntu-latest
+  #   needs: [build, integration-test]
+  #   if: github.ref == 'refs/heads/main'
+  #   environment: staging
+  #   steps:
+  #   - name: Checkout code
+  #     uses: actions/checkout@v4
 
-    - name: Configure AWS credentials
-      uses: aws-actions/configure-aws-credentials@v4
-      with:
-        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-        aws-region: us-west-2
+  #   - name: Configure AWS credentials
+  #     uses: aws-actions/configure-aws-credentials@v4
+  #     with:
+  #       aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+  #       aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+  #       aws-region: us-west-2
 
-    - name: Configure kubectl
-      run: |
-        aws eks update-kubeconfig --region us-west-2 --name sre-learning-cluster
+  #   - name: Configure kubectl
+  #     run: |
+  #       aws eks update-kubeconfig --region us-west-2 --name sre-learning-cluster
 
-    - name: Deploy to staging
-      run: |
-        # Update image tags in K8s manifests
-        sed -i 's|image: sre-learning-app/frontend:latest|image: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME_FRONTEND }}:${{ github.sha }}|' k8s/deployment-frontend.yaml
-        sed -i 's|image: sre-learning-app/backend:latest|image: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME_BACKEND }}:${{ github.sha }}|' k8s/deployment-backend.yaml
+  #   - name: Deploy to staging
+  #     run: |
+  #       # Update image tags in K8s manifests
+  #       sed -i 's|image: sre-learning-app/frontend:latest|image: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME_FRONTEND }}:${{ github.sha }}|' k8s/deployment-frontend.yaml
+  #       sed -i 's|image: sre-learning-app/backend:latest|image: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME_BACKEND }}:${{ github.sha }}|' k8s/deployment-backend.yaml
         
-        # Apply K8s manifests
-        kubectl apply -f k8s/
+  #       # Apply K8s manifests
+  #       kubectl apply -f k8s/
         
-        # Wait for rollout to complete
-        kubectl rollout status deployment/frontend-deployment -n default --timeout=300s
-        kubectl rollout status deployment/backend-deployment -n default --timeout=300s
+  #       # Wait for rollout to complete
+  #       kubectl rollout status deployment/frontend-deployment -n default --timeout=300s
+  #       kubectl rollout status deployment/backend-deployment -n default --timeout=300s
         
-        echo "🚀 Staging deployment completed!"
+  #       echo "🚀 Staging deployment completed!"
 
-    - name: Run smoke tests against staging
-      run: |
-        # Get the staging URL (adjust based on your ingress configuration)
-        STAGING_URL=$(kubectl get ingress app-ingress -o jsonpath='{.status.loadBalancer.ingress[0].hostname}')
+  #   - name: Run smoke tests against staging
+  #     run: |
+  #       # Get the staging URL (adjust based on your ingress configuration)
+  #       STAGING_URL=$(kubectl get ingress app-ingress -o jsonpath='{.status.loadBalancer.ingress[0].hostname}')
         
-        # Run smoke tests
-        curl -f http://$STAGING_URL/health
-        curl -f http://$STAGING_URL/api/data
+  #       # Run smoke tests
+  #       curl -f http://$STAGING_URL/health
+  #       curl -f http://$STAGING_URL/api/data
         
-        echo "✅ Staging smoke tests passed!"
+  #       echo "✅ Staging smoke tests passed!"
 
-  # Deploy to production (manual approval required)
-  deploy-production:
-    name: Deploy to Production
-    runs-on: ubuntu-latest
-    needs: [deploy-staging]
-    if: github.ref == 'refs/heads/main'
-    environment: production
-    steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
+  # # Deploy to production (manual approval required)
+  # deploy-production:
+  #   name: Deploy to Production
+  #   runs-on: ubuntu-latest
+  #   needs: [deploy-staging]
+  #   if: github.ref == 'refs/heads/main'
+  #   environment: production
+  #   steps:
+  #   - name: Checkout code
+  #     uses: actions/checkout@v4
 
-    - name: Configure AWS credentials
-      uses: aws-actions/configure-aws-credentials@v4
-      with:
-        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-        aws-region: us-west-2
+  #   - name: Configure AWS credentials
+  #     uses: aws-actions/configure-aws-credentials@v4
+  #     with:
+  #       aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+  #       aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+  #       aws-region: us-west-2
 
-    - name: Configure kubectl
-      run: |
-        aws eks update-kubeconfig --region us-west-2 --name sre-learning-cluster
+  #   - name: Configure kubectl
+  #     run: |
+  #       aws eks update-kubeconfig --region us-west-2 --name sre-learning-cluster
 
-    - name: Deploy to production
-      run: |
-        # Use blue-green deployment strategy for production
-        # This is a simplified version - consider using tools like Argo Rollouts
+  #   - name: Deploy to production
+  #     run: |
+  #       # Use blue-green deployment strategy for production
+  #       # This is a simplified version - consider using tools like Argo Rollouts
         
-        # Update image tags
-        sed -i 's|image: sre-learning-app/frontend:latest|image: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME_FRONTEND }}:${{ github.sha }}|' k8s/deployment-frontend.yaml
-        sed -i 's|image: sre-learning-app/backend:latest|image: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME_BACKEND }}:${{ github.sha }}|' k8s/deployment-backend.yaml
+  #       # Update image tags
+  #       sed -i 's|image: sre-learning-app/frontend:latest|image: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME_FRONTEND }}:${{ github.sha }}|' k8s/deployment-frontend.yaml
+  #       sed -i 's|image: sre-learning-app/backend:latest|image: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME_BACKEND }}:${{ github.sha }}|' k8s/deployment-backend.yaml
         
-        # Apply with rolling update
-        kubectl apply -f k8s/
+  #       # Apply with rolling update
+  #       kubectl apply -f k8s/
         
-        # Monitor rollout
-        kubectl rollout status deployment/frontend-deployment -n default --timeout=600s
-        kubectl rollout status deployment/backend-deployment -n default --timeout=600s
+  #       # Monitor rollout
+  #       kubectl rollout status deployment/frontend-deployment -n default --timeout=600s
+  #       kubectl rollout status deployment/backend-deployment -n default --timeout=600s
         
-        echo "🎉 Production deployment completed!"
+  #       echo "🎉 Production deployment completed!"
 
-    - name: Post-deployment verification
-      run: |
-        # Run comprehensive post-deployment tests
-        PROD_URL=$(kubectl get ingress app-ingress -o jsonpath='{.status.loadBalancer.ingress[0].hostname}')
+  #   - name: Post-deployment verification
+  #     run: |
+  #       # Run comprehensive post-deployment tests
+  #       PROD_URL=$(kubectl get ingress app-ingress -o jsonpath='{.status.loadBalancer.ingress[0].hostname}')
         
-        # Health checks
-        curl -f http://$PROD_URL/health
-        curl -f http://$PROD_URL/metrics
+  #       # Health checks
+  #       curl -f http://$PROD_URL/health
+  #       curl -f http://$PROD_URL/metrics
         
-        # Performance check
-        curl -w "Total time: %{time_total}s\n" -o /dev/null -s http://$PROD_URL/api/data
+  #       # Performance check
+  #       curl -w "Total time: %{time_total}s\n" -o /dev/null -s http://$PROD_URL/api/data
         
-        echo "✅ Production verification completed!"
+  #       echo "✅ Production verification completed!"
 
-    - name: Notify deployment
-      uses: 8398a7/action-slack@v3
-      if: always()
-      with:
-        status: ${{ job.status }}
-        text: "Production deployment ${{ job.status }} for commit ${{ github.sha }}"
-      env:
-        SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+  #   - name: Notify deployment
+  #     uses: 8398a7/action-slack@v3
+  #     if: always()
+  #     with:
+  #       status: ${{ job.status }}
+  #       text: "Production deployment ${{ job.status }} for commit ${{ github.sha }}"
+  #     env:
+  #       SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
 
 # TODO: Add the following jobs for a complete pipeline:
 # - Canary deployments
