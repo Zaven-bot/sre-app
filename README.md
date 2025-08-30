@@ -1,12 +1,11 @@
-# 🚀 SRE/DevOps Learning Project
+# SRE - DevOps Learning Project
 
-> **A hands-on, production-ready application to master SRE and DevOps skills**
+> **Production-ready infrastructure to review SRE and DevOps skills**
 
-This project provides a complete learning environment covering all essential SRE/DevOps technologies through a real-world application that you can run locally, deploy to Kubernetes, and scale to the cloud.
+I used this project to review SRE/DevOps technologies I've used in professional production settings that I wanted to get a deeper understanding of. I've ran these technologies locally, deployed to Kubernetes, and scale to the cloud.
 
-## 🎯 What You'll Learn
-
-✅ **Linux & Shell Scripting** - Daily bread of SRE  
+## Highlighted Skills:
+✅ **Linux & Shell Scripting** - Automated deployment
 ✅ **Git + CI/CD** - GitHub Actions, automated pipelines  
 ✅ **Containers** - Docker → Kubernetes orchestration  
 ✅ **Cloud Basics** - AWS infrastructure with Terraform  
@@ -15,22 +14,41 @@ This project provides a complete learning environment covering all essential SRE
 ## ⚡ Quick Start
 
 ```bash
-# 1. Get the project running locally
-./scripts/setup.sh
+# 1. Connect to AWS EKS cluster
+aws configure
+aws eks update-kubeconfig --region us-west-2 --name sre-learning-cluster
 
-# 2. Or run everything with Docker
-cd docker && docker-compose up --build
+# 2. Deploy everything (build + deploy)
+./sre-app.sh up
+deploy_app() {
+    ./build.sh clean     # Clean Docker images
+    ./build.sh build     # Build new images  
+    ./deploy.sh deploy   # Deploy to Kubernetes
+}
 
-# 3. Access your running application
-open http://localhost        # Frontend dashboard
-open http://localhost:5000   # Backend API
-open http://localhost:9090   # Prometheus metrics
-open http://localhost:3000   # Grafana dashboards
+# 3. Access services via port-forward
+./sre-app.sh access
+start_access() {
+    ./port-forward.sh    # Start port-forwarding
+}
+```
+
+### On AWS vs Local:
+```bash
+./sre-app.sh up      # Deploy everything
+./sre-app.sh access  # Port-forward to Grafana/Prometheus only
+# Frontend accessible via: http://abc123.us-west-2.elb.amazonaws.com
+```
+
+```bash
+./sre-app.sh up      # Deploy everything  
+./sre-app.sh access  # Port-forward to ALL services including frontend
+# Frontend accessible via: http://localhost:8080
 ```
 
 ## 🏗️ What's Inside
 
-- **Production-Ready App**: Flask backend + frontend with real metrics
+- **App**: Simple SRE playground featuring load testing and displayed live /metrics
 - **Full Container Stack**: Multi-stage Docker builds with security best practices
 - **Kubernetes Manifests**: Complete K8s deployment with ingress, monitoring
 - **AWS Infrastructure**: Terraform EKS cluster ready for production

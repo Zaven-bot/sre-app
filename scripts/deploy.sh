@@ -76,6 +76,63 @@ check_images() {
     return 0
 }
 
+# Add this function to deploy.sh# Update import_dashboards function in deploy.sh:
+import_dashboards() {
+    print_status "Checking for Grafana dashboards..."
+    
+    # Check if dashboard file exists
+    if [ ! -f "../monitoring/dashboards/backend-metrics.json" ]; then
+        print_status "No dashboard file found - skipping dashboard import"
+        print_status "Create ../monitoring/dashboards/backend-metrics.json to enable auto-import"
+        return 0
+    fi
+    
+    print_status "Dashboard file found - importing to Grafana..."
+    
+    # Check if Grafana is actually running
+    if ! kubectl get pod -l app=grafana --no-headers | grep -q "Running"; then
+        print_warning "Grafana pod is not running - skipping dashboard import"
+        return 0
+    fi
+    
+    # Port-forward in background for API access
+    kubectl port-forward svc/grafana-service 3000:3000 &
+    PF_PID=$!
+    
+    # Wait for port-forward to be ready
+    sleep 5
+    
+    # Wait for Grafana to be fully ready
+    print_status "Waiting for Grafana API to be ready..."
+    for i in {1..15}; do  # Reduced timeout
+        if curl -s -f -u admin:admin http://localhost:3000/api/health > /dev/null 2>&1; then
+            print_success "Grafana API is ready"
+            break
+        fi
+        if [ $i -eq 15 ]; then
+            print_warning "Grafana API not ready - skipping dashboard import"
+            kill $PF_PID 2>/dev/null || true
+            return 0  # Don't fail, just skip
+        fi
+        sleep 2
+    done
+    
+    # Import dashboard
+    print_status "Importing backend metrics dashboard..."
+    if curl -s -X POST \
+        -H "Content-Type: application/json" \
+        -u admin:admin \
+        -d @../monitoring/dashboards/backend-metrics.json \
+        http://localhost:3000/api/dashboards/db > /dev/null 2>&1; then
+        print_success "Dashboard imported successfully"
+    else
+        print_warning "Dashboard import failed - continuing anyway"
+    fi
+    
+    # Clean up port-forward
+    kill $PF_PID 2>/dev/null || true
+}
+
 # Function to deploy components in order
 deploy_components() {
 
@@ -87,7 +144,6 @@ deploy_components() {
     print_status "Waiting for Redis to be ready..."
     kubectl wait --for=condition=ready pod -l app=redis --timeout=300s
     print_success "Redis is ready"
-
 
     print_status "Deploying Backend application..."
     kubectl apply -f deployment-backend.yaml
@@ -118,6 +174,11 @@ deploy_components() {
     print_status "Waiting for Grafana to be ready..."
     kubectl wait --for=condition=ready pod -l app=grafana --timeout=300s
     print_success "Grafana is ready"
+
+    print_status "Importing Grafana dashboards..."
+    # Add this line:
+    import_dashboards
+    print_success "Grafana dashboards imported"
     
     print_status "Deploying Horizontal Pod Autoscaler..."
     kubectl apply -f hpa.yaml
@@ -127,9 +188,9 @@ deploy_components() {
     kubectl apply -f network-policies.yaml
     print_success "Network Policies applied"
     
-    print_status "Deploying Ingress..."
-    kubectl apply -f ingress.yaml
-    print_success "Ingress deployed"
+    # print_status "Deploying Ingress..."
+    # kubectl apply -f ingress.yaml
+    # print_success "Ingress deployed"
 
     # Return to scripts directory
     cd ../scripts

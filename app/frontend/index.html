@@ -144,10 +144,11 @@
         async function generateLoad() {
             const requests = 10;
             for (let i = 0; i < requests; i++) {
+                showError(`Generating request ${i} test request`);
                 apiCall('/load-test');
                 await new Promise(resolve => setTimeout(resolve, 100));
             }
-            showError(`Generated ${requests} test requests`);
+            showError(`Generated ${requests} BOOM test requests`);
             setTimeout(fetchMetrics, 500);
         }
 
