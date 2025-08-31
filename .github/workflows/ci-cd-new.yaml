@@ -206,7 +206,30 @@ jobs:
       # Test with your existing docker-compose.yml but using built images
       - name: Run Integration Tests with Docker Compose
         run: |
-          # Create a test version of docker-compose that uses the built images
+          # Create the monitoring directory and extract prometheus config
+          mkdir -p monitoring
+          
+          # Extract just the prometheus.yml content from your k8s file
+          cat > monitoring/prometheus-config.yaml << 'EOF'
+          global:
+            scrape_interval: 15s
+            evaluation_interval: 15s
+
+          scrape_configs:
+            # Prometheus itself
+            - job_name: 'prometheus'
+              static_configs:
+                - targets: ['localhost:9090']
+
+            # Backend application metrics (for docker-compose)
+            - job_name: 'backend-app'
+              static_configs:
+                - targets: ['backend:5000']
+              metrics_path: '/metrics'
+              scrape_interval: 10s
+          EOF
+          
+          # Now proceed with your existing docker-compose modification
           cp docker/docker-compose.yml docker/docker-compose.test.yml
           
           # Update image references to use the built images from registry
@@ -234,22 +257,23 @@ jobs:
           sleep 45
           
           # Show running containers for debugging
+          echo "📦 Running containers:"
           docker ps
           
           # Show logs for debugging
           echo "📝 Container logs:"
           docker compose -f docker/docker-compose.test.yml logs
           
-          # Run health checks based on your actual endpoints
+          # Run health checks - NOTE: Your backend runs on port 5000 internally, maps to 6000!
           echo "🏥 Running health checks..."
           curl -f http://localhost:6000/health || (echo "❌ Backend health check failed" && exit 1)
-          
-          # Check if frontend has health endpoint, otherwise skip
-          curl -f http://localhost:80/ || echo "⚠️  Frontend check skipped (no health endpoint)"
           
           # Test API endpoints
           echo "🧪 Testing API endpoints..."
           curl -f http://localhost:6000/api/data || (echo "❌ API endpoint test failed" && exit 1)
+          
+          # Test frontend (basic connectivity)
+          curl -f http://localhost:80/ || echo "⚠️  Frontend check skipped (may not have health endpoint)"
           
           echo "✅ All integration tests passed!"
           
