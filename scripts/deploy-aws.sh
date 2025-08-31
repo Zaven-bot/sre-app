@@ -7,7 +7,7 @@ set -e  # Exit on any error
 
 # Default variables
 ENVIRONMENT=${ENVIRONMENT:-dev}
-AWS_REGION=${AWS_REGION:-us-west-2}
+AWS_REGION=${AWS_REGION:-us-east-1}
 CLUSTER_NAME=${CLUSTER_NAME:-sre-learning-cluster}
 PROJECT_NAME=${PROJECT_NAME:-sre-learning}
 
@@ -236,7 +236,7 @@ case "${1:-}" in
         echo ""
         echo "Environment variables:"
         echo "  ENVIRONMENT=dev|production (default: dev)"
-        echo "  AWS_REGION=us-west-2 (default)"
+        echo "  AWS_REGION=us-east-1 (default)"
         echo "  CLUSTER_NAME=sre-learning-cluster (default)"
         echo ""
         echo "Examples:"
