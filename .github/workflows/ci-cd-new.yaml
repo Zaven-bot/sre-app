@@ -201,7 +201,6 @@ jobs:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
-
       # Test with your existing docker-compose.yml but using built images
       - name: Run Integration Tests with Docker Compose
         run: |
@@ -218,8 +217,8 @@ jobs:
           sed -i "s|#build:|image: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME_BACKEND }}:${{ github.sha }}|g" docker/docker-compose.test.yml
           sed -i "s|#build:|image: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME_FRONTEND }}:${{ github.sha }}|g" docker/docker-compose.test.yml
           
-          # Start the full stack
-          docker-compose -f docker/docker-compose.test.yml up -d
+          # Start the full stack (using 'docker compose' not 'docker-compose')
+          docker compose -f docker/docker-compose.test.yml up -d
           
           # Wait for services to be ready
           echo "⏳ Waiting for services to start..."
@@ -237,10 +236,10 @@ jobs:
           echo "✅ All integration tests passed!"
           
           # Show logs for debugging
-          docker-compose -f docker/docker-compose.test.yml logs
+          docker compose -f docker/docker-compose.test.yml logs
           
           # Cleanup
-          docker-compose -f docker/docker-compose.test.yml down
+          docker compose -f docker/docker-compose.test.yml down
 
       # TODO: Add more comprehensive integration testing
       - name: "[PLACEHOLDER] Advanced Integration Testing"
