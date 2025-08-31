@@ -119,7 +119,6 @@ spec:
     - ReadWriteOnce
   resources:
     requests:
-      storage: 5Gi
-  # Uncomment for specific storage class
-  # storageClassName: gp2  # AWS EBS
-  # storageClassName: standard  # GCP persistent disk
+      storage: 1Gi
+  storageClassName: gp3  # AWS EBS
+

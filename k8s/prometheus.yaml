@@ -198,9 +198,8 @@ spec:
     - ReadWriteOnce
   resources:
     requests:
-      storage: 10Gi
-  # Uncomment for specific storage class
-  # storageClassName: gp2  # AWS EBS
+      storage: 2Gi
+  storageClassName: gp3
 
 ---
 # Service Account for Prometheus to access Kubernetes API

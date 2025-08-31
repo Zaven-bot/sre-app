@@ -165,9 +165,8 @@ spec:
     - ReadWriteOnce
   resources:
     requests:
-      storage: 5Gi # Can I have 5Gi of space to save dashboards?
-  # Uncomment for specific storage class
-  # storageClassName: gp2  # AWS EBS
+      storage: 1Gi # 1 Gigabyte of space for dashboards
+  storageClassName: gp3  # AWS EBS
 
 ---
 apiVersion: v1
