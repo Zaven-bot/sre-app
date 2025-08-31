@@ -65,7 +65,7 @@ class MetricsCollector:
             return
 
         self.start_time = time.time()
-        
+
         # Require Redis - fail fast if unavailable
         if redis_client is None:
             raise RuntimeError(
@@ -76,7 +76,7 @@ class MetricsCollector:
         # Initialize Redis keys if they don't exist
         if not redis_client.exists("app:start_time"):
             redis_client.set("app:start_time", self.start_time)
-        
+
         print("✅ Using Redis for metrics storage")
         self._initialized = True
 
@@ -90,7 +90,9 @@ class MetricsCollector:
 
             if not success or status_code >= 400:
                 redis_client.incr("app:errors_total")
-                redis_client.incr(f"app:errors_{status_code}")  # Track specific error codes
+                redis_client.incr(
+                    f"app:errors_{status_code}"
+                )  # Track specific error codes
 
             # Store endpoint-specific metrics
             redis_client.incr(f"app:endpoint:{endpoint}:requests")
