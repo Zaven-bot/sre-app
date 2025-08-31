@@ -45,8 +45,8 @@ redis_client = get_redis_client()
 
 class MetricsCollector:
     """
-    Metrics collector using Redis for shared storage across multiple workers.
-    Falls back to in-memory storage if Redis is unavailable.
+    Redis-only metrics collector for shared storage across multiple workers.
+    Requires Redis to be available - fails fast if Redis is unavailable.
     """
 
     _instance = None
@@ -65,130 +65,92 @@ class MetricsCollector:
             return
 
         self.start_time = time.time()
-        self.use_redis = redis_client is not None
+        
+        # Require Redis - fail fast if unavailable
+        if redis_client is None:
+            raise RuntimeError(
+                "❌ Redis is required but unavailable. "
+                "Please ensure Redis is running and accessible."
+            )
 
-        if self.use_redis:
-            # Initialize Redis keys if they don't exist
-            if not redis_client.exists("app:start_time"):
-                redis_client.set("app:start_time", self.start_time)
-            print("✅ Using Redis for shared metrics storage")
-        else:
-            # Fallback to in-memory storage
-            self.request_counter = 0
-            self.error_counter = 0
-            self.response_times = []
-            self._metrics_lock = threading.Lock()
-            print("⚠️  Using in-memory metrics (Redis unavailable)")
-
+        # Initialize Redis keys if they don't exist
+        if not redis_client.exists("app:start_time"):
+            redis_client.set("app:start_time", self.start_time)
+        
+        print("✅ Using Redis for metrics storage")
         self._initialized = True
 
     def record_request(self, endpoint, duration, success=True, status_code=200):
         """Record a request using Redis for shared storage."""
-        if self.use_redis:
-            try:
-                # Atomic operations in Redis
-                redis_client.incr("app:requests_total")
-                redis_client.lpush("app:response_times", duration * 1000)  # Store in ms
-                redis_client.ltrim("app:response_times", 0, 999)  # Keep last 1000
+        try:
+            # Atomic operations in Redis
+            redis_client.incr("app:requests_total")
+            redis_client.lpush("app:response_times", duration * 1000)  # Store in ms
+            redis_client.ltrim("app:response_times", 0, 999)  # Keep last 1000
 
-                if not success or status_code >= 400:
-                    redis_client.incr("app:errors_total")
-                    redis_client.incr(
-                        f"app:errors_{status_code}"
-                    )  # Track specific error codes
+            if not success or status_code >= 400:
+                redis_client.incr("app:errors_total")
+                redis_client.incr(f"app:errors_{status_code}")  # Track specific error codes
 
-                # Store endpoint-specific metrics
-                redis_client.incr(f"app:endpoint:{endpoint}:requests")
-            except Exception as e:
-                print(f"Redis error in record_request: {e}")
-                # Could fall back to in-memory here
-        else:
-            # Fallback to in-memory storage
-            with self._metrics_lock:
-                self.request_counter += 1
-
-                if not success or status_code >= 400:
-                    self._error_counter += 1
-
-                self.response_times.append(duration)
-                if len(self.response_times) > 1000:
-                    self.response_times = self.response_times[-1000:]
+            # Store endpoint-specific metrics
+            redis_client.incr(f"app:endpoint:{endpoint}:requests")
+        except Exception as e:
+            print(f"❌ Redis error in record_request: {e}")
+            # Re-raise to fail fast rather than silently continue
+            raise RuntimeError(f"Redis operation failed: {e}")
 
     def get_metrics(self):
-        """Get current metrics from Redis or in-memory storage."""
-        if self.use_redis:
-            try:
-                # Get metrics from Redis
-                requests_total = int(redis_client.get("app:requests_total") or 0)
-                errors_total = int(redis_client.get("app:errors_total") or 0)
+        """Get current metrics from Redis."""
+        try:
+            # Get metrics from Redis
+            requests_total = int(redis_client.get("app:requests_total") or 0)
+            errors_total = int(redis_client.get("app:errors_total") or 0)
 
-                # Get error breakdown by status code
-                errors_400 = int(redis_client.get("app:errors_400") or 0)
-                errors_500 = int(redis_client.get("app:errors_500") or 0)
+            # Get error breakdown by status code
+            errors_400 = int(redis_client.get("app:errors_400") or 0)
+            errors_500 = int(redis_client.get("app:errors_500") or 0)
 
-                # Get response times and calculate average
-                response_times_raw = redis_client.lrange("app:response_times", 0, -1)
-                response_times = [float(x) for x in response_times_raw if x]
-                response_time_avg = (
-                    sum(response_times) / len(response_times) if response_times else 0
-                )
+            # Get response times and calculate average
+            response_times_raw = redis_client.lrange("app:response_times", 0, -1)
+            response_times = [float(x) for x in response_times_raw if x]
+            response_time_avg = (
+                sum(response_times) / len(response_times) if response_times else 0
+            )
 
-                # Get endpoint-specific metrics
-                endpoint_metrics = {}
-                for key in redis_client.keys("app:endpoint:*:requests"):
-                    try:
-                        endpoint = key.split(":")[2]  # Extract endpoint name
-                        count = int(redis_client.get(key) or 0)
-                        endpoint_metrics[endpoint] = count
-                    except (IndexError, ValueError):
-                        continue
+            # Get endpoint-specific metrics
+            endpoint_metrics = {}
+            for key in redis_client.keys("app:endpoint:*:requests"):
+                try:
+                    endpoint = key.split(":")[2]  # Extract endpoint name
+                    count = int(redis_client.get(key) or 0)
+                    endpoint_metrics[endpoint] = count
+                except (IndexError, ValueError):
+                    continue
 
-                # Get app start time from Redis
-                app_start_time = float(
-                    redis_client.get("app:start_time") or self.start_time
-                )
-                uptime = time.time() - app_start_time
+            # Get app start time from Redis
+            app_start_time = float(
+                redis_client.get("app:start_time") or self.start_time
+            )
+            uptime = time.time() - app_start_time
 
-                return {
-                    "requests_total": requests_total,
-                    "errors_total": errors_total,
-                    "errors_400": errors_400,
-                    "errors_500": errors_500,
-                    "uptime": uptime,
-                    "response_time_avg": response_time_avg,
-                    "memory_usage_mb": psutil.Process().memory_info().rss / 1024 / 1024,
-                    "cpu_percent": psutil.cpu_percent(),
-                    "storage_type": "redis",
-                    "worker_id": os.getpid(),  # Show which worker responded
-                    "endpoint_metrics": endpoint_metrics,
-                }
+            return {
+                "requests_total": requests_total,
+                "errors_total": errors_total,
+                "errors_400": errors_400,
+                "errors_500": errors_500,
+                "uptime": uptime,
+                "response_time_avg": response_time_avg,
+                "memory_usage_mb": psutil.Process().memory_info().rss / 1024 / 1024,
+                "cpu_percent": psutil.cpu_percent(),
+                "storage_type": "redis",
+                "worker_id": os.getpid(),
+                "endpoint_metrics": endpoint_metrics,
+            }
 
-            except Exception as e:
-                print(f"Redis error in get_metrics: {e}")
-                return {"error": "Redis unavailable", "storage_type": "error"}
-        else:
-            # Fallback to in-memory metrics
-            with self._metrics_lock:
-                uptime = time.time() - self.start_time
-                response_time_avg = (
-                    sum(self.response_times) / len(self.response_times)
-                    if self.response_times
-                    else 0
-                )
-
-                return {
-                    "requests_total": self.request_counter,
-                    "errors_total": self.error_counter,
-                    "errors_400": 0,  # Not tracked in memory version
-                    "errors_500": 0,  # Not tracked in memory version
-                    "uptime": uptime,
-                    "response_time_avg": response_time_avg * 1000,  # Convert to ms
-                    "memory_usage_mb": psutil.Process().memory_info().rss / 1024 / 1024,
-                    "cpu_percent": psutil.cpu_percent(),
-                    "storage_type": "in-memory",
-                    "worker_id": os.getpid(),
-                    "endpoint_metrics": {},  # Not tracked in memory version
-                }
+        except Exception as e:
+            print(f"❌ Redis error in get_metrics: {e}")
+            # Re-raise to fail fast rather than return error dict
+            raise RuntimeError(f"Redis operation failed: {e}")
 
 
 # Create metrics instance
