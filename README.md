@@ -1,6 +1,6 @@
 # SRE Learning App
 
-A production-ready infrastructure project demonstrating comprehensive SRE and DevOps practices. This project implements a complete application stack with Flask backend, static frontend, Redis caching, and full observability through Prometheus and Grafana monitoring.
+A production-ready infrastructure project demonstrating comprehensive SRE and DevOps practices. During my time at Alegeus, I realized a big gap in my knowledge was understanding how my code went from my computer to helping real people. In order to bridge this gap in my understanding and to prepare myself to help at any part of the stack, this project implements a complete application stack with Flask backend, static frontend, Redis caching, and full observability through Prometheus and Grafana monitoring.
 
 ## Architecture Overview
 
