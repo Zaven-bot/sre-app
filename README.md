@@ -2,6 +2,9 @@
 
 A production-ready infrastructure project demonstrating comprehensive SRE and DevOps practices. During my time at Alegeus, I realized a big gap in my knowledge was understanding how my code went from my computer to helping real people. In order to bridge this gap in my understanding and to prepare myself to help at any part of the stack, this project implements a complete application stack with Flask backend, static frontend, Redis caching, and full observability through Prometheus and Grafana monitoring.
 
+![Frontend](docs/screenshots/frontend-ui.png)
+
+
 ## Architecture Overview
 
 ```
@@ -68,16 +71,36 @@ docker compose up -d
 
 # Clean up
 ./scripts/sre-app.sh down
+
+# To access the other services via port-forwarding, use the following commands (run each in a separate terminal):
+
+# Frontend:
+kubectl port-forward svc/frontend-service 8080:80
+
+# Backend:
+kubectl port-forward svc/backend-service 8000:5000
+
+# Prometheus:
+kubectl port-forward svc/prometheus-service 9090:9090
+
+# Grafana:
+kubectl port-forward svc/grafana-service 3000:3000
 ```
+
 
 ### Option 3: AWS EKS (Cloud Deployment)
 ```bash
 # Provision AWS infrastructure and deploy
 ./scripts/deploy-aws.sh
 
-# Note: AWS deployment is a pain in the ass
+# Note: AWS deployment is a pain
 # Be prepared for IAM permissions, VPC configurations, and billing surprises
 ```
+
+Successful AWS EKS cluster deployment
+![Cluster](docs/screenshots/sre-cluster-1.png)
+![Cluster2](docs/screenshots/sre-cluster-2.png)
+![Repo](docs/screenshots/sre-repo.png)
 
 ## Project Structure
 
@@ -171,6 +194,8 @@ curl http://backend-service:5000/metrics
 - **Data Source**: Prometheus automatically configured
 - **Dashboards**: System overview, application performance, resource utilization
 
+![Grafana](docs/screenshots/grafana-dashboard.png)
+
 ## Configuration Details
 
 ### Environment Variables
@@ -195,6 +220,8 @@ curl http://backend-service:5000/metrics
 ```
 
 ## CI/CD Pipeline
+
+![GitHub Actions Pipeline](docs/screenshots/ci-cd.png)
 
 GitHub Actions automatically handles:
 
