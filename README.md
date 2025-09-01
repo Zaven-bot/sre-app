@@ -1,18 +1,45 @@
-# SRE DevOps Learning Project
+# SRE Learning App
 
-A hands-on infrastructure project demonstrating production SRE and DevOps practices. Built to showcase end-to-end automation, monitoring, and deployment capabilities using modern containerization and orchestration technologies.
+A production-ready infrastructure project demonstrating comprehensive SRE and DevOps practices. This project implements a complete application stack with Flask backend, static frontend, Redis caching, and full observability through Prometheus and Grafana monitoring.
 
-## Overview
+## Architecture Overview
 
-This project implements a complete application stack with Flask backend, static frontend, and comprehensive monitoring. Everything runs in containers with Kubernetes orchestration and includes a fully automated CI/CD pipeline.
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                              Internet                                       │
+└─────────────────────────┬───────────────────────────────────────────────────┘
+                          │
+┌─────────────────────────▼───────────────────────────────────────────────────┐
+│                    AWS Application Load Balancer                           │
+│                         (ALB/Ingress)                                      │
+└─────────────────────────┬───────────────────────────────────────────────────┘
+                          │
+┌─────────────────────────▼───────────────────────────────────────────────────┐
+│                     Kubernetes Cluster (EKS)                               │
+│  ┌─────────────────┐  ┌─────────────────┐  ┌─────────────────────────────┐ │
+│  │   Frontend      │  │    Backend      │  │      Monitoring             │ │
+│  │   (Nginx)       │  │   (Flask API)   │  │   ┌─────────────────────┐   │ │
+│  │  ┌───────────┐  │  │  ┌───────────┐  │  │   │    Prometheus      │   │ │
+│  │  │ HTML/CSS/ │  │  │  │  Python   │  │  │   │   (Metrics)        │   │ │
+│  │  │    JS     │  │  │  │   Flask   │  │  │   └─────────────────────┘   │ │
+│  │  └───────────┘  │  │  │  Health   │  │  │   ┌─────────────────────┐   │ │
+│  │   Port: 80      │  │  │  Metrics  │  │  │   │     Grafana         │   │ │
+│  │   Replicas: 2   │  │  └───────────┘  │  │   │   (Dashboards)      │   │ │
+│  └─────────────────┘  │   Port: 5000    │  │   └─────────────────────┘   │ │
+│                       │   Replicas: 3   │  │                             │ │
+│                       └─────────────────┘  └─────────────────────────────┘ │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
 
-**Current Status:**
-- Local development with Docker Compose
-- Kubernetes deployment (local clusters)
-- CI/CD pipeline with GitHub Actions
-- Prometheus + Grafana monitoring stack
-- Automated deployment scripts
-- AWS EKS infrastructure (in progress)
+### Component Details
+
+| Component | Purpose | Replicas | Ports | Key Features |
+|-----------|---------|----------|-------|--------------|
+| **Frontend** | Nginx serving static files with API proxy | 2 | 80 | Rate limiting, health checks |
+| **Backend** | Gunicorn WSGI server with Flask app | 3 | 5000 | 2+ workers per pod, metrics endpoint |
+| **Redis** | Shared metrics storage and caching | 1 | 6379 | Persistent storage, backup |
+| **Prometheus** | Metrics collection and alerting | 1 | 9090 | Service discovery, 30-day retention |
+| **Grafana** | Visualization dashboards | 1 | 3000 | Auto-configured data sources |
 
 ## Quick Start
 
@@ -28,19 +55,28 @@ docker compose up -d
 # Grafana: http://localhost:3000 (admin/admin)
 ```
 
-### Option 2: Kubernetes (Production-like)
+### Option 2: Local Kubernetes
 ```bash
-# Deploy to local Kubernetes cluster
+# Deploy to local cluster (minikube, kind, docker-desktop)
 ./scripts/sre-app.sh up
 
 # Access services (starts port-forwarding)
 ./scripts/sre-app.sh access
 
-# Check deployment status
+# Check status
 ./scripts/sre-app.sh status
 
-# Clean up when done
+# Clean up
 ./scripts/sre-app.sh down
+```
+
+### Option 3: AWS EKS (Cloud Deployment)
+```bash
+# Provision AWS infrastructure and deploy
+./scripts/deploy-aws.sh
+
+# Note: AWS deployment is a pain in the ass
+# Be prepared for IAM permissions, VPC configurations, and billing surprises
 ```
 
 ## Project Structure
@@ -48,180 +84,291 @@ docker compose up -d
 ```
 sre-app/
 ├── app/
-│   ├── backend/           # Flask API with health checks
-│   └── frontend/          # Static HTML/JS interface
+│   ├── backend/              # Flask API with health checks and metrics
+│   └── frontend/             # Static HTML/JS interface
 ├── docker/
-│   ├── Dockerfile.backend # Multi-stage Python build
-│   ├── Dockerfile.frontend# Nginx-based frontend
-│   └── docker-compose.yml # Complete local stack
-├── k8s/                   # Kubernetes manifests
-│   ├── deployment-*.yaml  # Application deployments
-│   ├── service-*.yaml     # Service definitions
-│   ├── prometheus.yaml    # Monitoring configuration
-│   ├── grafana.yaml       # Dashboard setup
-│   ├── hpa.yaml          # Horizontal Pod Autoscaler
+│   ├── Dockerfile.backend    # Multi-stage Python build
+│   ├── Dockerfile.frontend   # Nginx-based frontend
+│   └── docker-compose.yml    # Complete local stack
+├── k8s/                      # Kubernetes manifests (production-ready)
+│   ├── deployment-*.yaml     # Application deployments
+│   ├── service-*.yaml        # Service definitions
+│   ├── prometheus.yaml       # Monitoring configuration
+│   ├── grafana.yaml          # Dashboard setup
+│   ├── hpa.yaml              # Horizontal Pod Autoscaler
 │   └── network-policies.yaml # Security policies
 ├── scripts/
-│   ├── sre-app.sh        # Main deployment controller
-│   ├── build.sh          # Docker image builder
-│   ├── deploy.sh         # Kubernetes orchestrator
-│   └── port-forward.sh   # Service access helper
+│   ├── sre-app.sh            # Main deployment controller
+│   ├── build.sh              # Docker image builder
+│   ├── deploy.sh             # Kubernetes orchestrator
+│   └── port-forward.sh       # Service access helper
 ├── .github/workflows/
-│   └── ci-cd-new.yaml    # Complete CI/CD pipeline
-└── infra/aws/            # Terraform (WIP)
+│   └── ci-cd-new.yaml        # Complete CI/CD pipeline
+└── infra/aws/                # Terraform for AWS EKS
     └── main.tf
 ```
 
-## Features
+## Production Features
 
-**Application Stack:**
-- SRE playground featuring load-testing and metric fetching
-- Flask backend with health endpoints and metrics
-- Static frontend served by nginx
-- Redis for caching and session storage
-- Comprehensive health checks and monitoring
+### Horizontal Pod Autoscaler (HPA)
+Backend automatically scales based on:
+- **CPU Utilization**: > 70%
+- **Memory Utilization**: > 80%
+- **Scaling Range**: 2-10 pods
+- **Scale-up Policy**: Wait 1min, add up to 100% more pods (max 2 at once)
+- **Scale-down Policy**: Wait 5min, remove up to 50% of pods
 
-**Infrastructure:**
-- Container-first architecture with multi-stage builds
-- Kubernetes deployment with proper resource management
-- Horizontal Pod Autoscaling (HPA) configured
-- Network policies for security
-- LoadBalancer services (ingress planned)
+### Resource Management
 
-**Monitoring & Observability:**
-- Prometheus metrics collection from all services
-- Grafana dashboards with application and infrastructure metrics
-- Custom health check endpoints
-- Resource usage tracking
+| Component | Memory Request | Memory Limit | CPU Request | CPU Limit |
+|-----------|----------------|--------------|-------------|-----------|
+| Backend   | 256Mi         | 512Mi        | 200m        | 500m      |
+| Frontend  | 64Mi          | 128Mi        | 50m         | 100m      |
+| Redis     | 128Mi         | 512Mi        | 100m        | 300m      |
+| Prometheus| 512Mi         | 1Gi          | 200m        | 500m      |
+| Grafana   | 256Mi         | 512Mi        | 100m        | 300m      |
 
-**CI/CD Pipeline:**
-- Automated testing (unit tests with pytest)
-- Code quality checks (flake8, black formatting)
-- Container vulnerability scanning with Trivy
-- Docker image builds pushed to GitHub Container Registry
-- Full integration testing with docker-compose
+### Persistent Storage
 
-## Deployment Scripts
+- **Redis**: 5Gi for data persistence
+- **Prometheus**: 10Gi for metrics storage (30-day retention)
+- **Grafana**: 5Gi for dashboards and configuration
 
-The project includes automated deployment scripts that handle the complexity:
+### Security Implementation
 
+#### Network Policies
+- **Backend**: Accessible from frontend and prometheus only
+- **Redis**: Backend access only
+- **Prometheus**: Can scrape backend, accessible from grafana
+- **Grafana**: External access only via port-forward
+
+#### Container Security
+- Non-root user execution in all containers
+- Multi-stage Docker builds for minimal attack surface
+- Vulnerability scanning in CI pipeline
+- Resource limits and health checks configured
+- Read-only root filesystems where possible
+
+### Health Checks & Monitoring
+
+#### Health Endpoints
 ```bash
-# Main commands
-./scripts/sre-app.sh up      # Build and deploy everything
-./scripts/sre-app.sh access  # Start port-forwarding for local access
-./scripts/sre-app.sh status  # Check deployment health
-./scripts/sre-app.sh down    # Clean shutdown
+# Backend health check
+curl http://backend-service:5000/health
 
-# Individual components
-./scripts/build.sh build     # Build Docker images
-./scripts/deploy.sh deploy   # Deploy to Kubernetes
-./scripts/port-forward.sh    # Access services locally
+# Backend metrics (Prometheus format)
+curl http://backend-service:5000/metrics
+```
+
+#### Prometheus Monitoring Targets
+- **Backend metrics**: `backend-service:5000/metrics`
+- **Kubernetes API**: Service discovery enabled
+- **Self-monitoring**: Prometheus internal metrics
+- **Custom business metrics**: Application-specific metrics
+
+#### Grafana Dashboards
+- **Access**: http://localhost:3000 (admin/admin)
+- **Data Source**: Prometheus automatically configured
+- **Dashboards**: System overview, application performance, resource utilization
+
+## Configuration Details
+
+### Environment Variables
+```yaml
+# Backend deployment configuration
+- name: REDIS_HOST
+  value: redis-service
+- name: REDIS_PORT
+  value: "6379"
+- name: FLASK_ENV
+  value: production
+- name: GUNICORN_WORKERS
+  value: "2"
+```
+
+### Service Discovery
+```yaml
+# Prometheus service discovery configuration
+- job_name: 'kubernetes-pods'
+  kubernetes_sd_configs:
+  - role: pod
 ```
 
 ## CI/CD Pipeline
 
-GitHub Actions automatically:
-1. **Lint & Test**: Code quality checks and unit tests
-2. **Security Scan**: Container vulnerability analysis
-3. **Build**: Create and push Docker images
-4. **Integration Test**: Verify full stack functionality
+GitHub Actions automatically handles:
 
-Pipeline triggers on pushes to main/develop branches and pull requests.
+### Code Quality & Testing
+- **Linting**: flake8, black formatting
+- **Unit Tests**: pytest with coverage
+- **Security Scanning**: Trivy container vulnerability analysis
+- **Integration Testing**: Full stack verification
 
-## Monitoring
+### Build & Deploy
+- **Docker Images**: Multi-stage builds pushed to GitHub Container Registry
+- **Automated Testing**: Complete stack integration tests
+- **Deployment**: Triggered on pushes to main/develop branches
 
-**Prometheus Metrics:**
-- Application performance and health
-- Kubernetes resource usage
-- Custom business metrics
-- Infrastructure monitoring
+## Deployment Environments
 
-**Grafana Dashboards:**
-- System overview and health status
-- Application performance metrics
-- Resource utilization tracking
+### Local Development
+- **Docker Compose**: Rapid iteration and testing
+- **Services**: All components running locally
+- **Access**: Direct port access to all services
 
-Access monitoring after deployment:
-- Prometheus: http://localhost:9090 (via port-forward)
-- Grafana: http://localhost:3000 (admin/admin)
+### Local Kubernetes
+- **Clusters**: minikube, kind, docker-desktop
+- **Access**: Port-forwarding for service access
+- **Storage**: Default StorageClass (no explicit storageClassName needed)
 
-## Development Workflow
+### AWS EKS Production
+- **Infrastructure**: Terraform-managed VPC, EKS cluster, security groups
+- **Networking**: Application Load Balancer, private subnets
+- **Storage**: EBS volumes with gp3 StorageClass
+- **Scaling**: Cluster autoscaler + HPA
+- **Reality Check**: "AWS deployment is a pain in the ass" - expect IAM hell
 
-1. **Local Development**: Use `docker compose up -d` for rapid iteration
-2. **Testing**: Run `pytest` in `app/backend/` or use the CI pipeline
-3. **Kubernetes Testing**: Deploy with `./scripts/sre-app.sh up`
-4. **Monitoring**: Check metrics and dashboards
-5. **CI/CD**: Push to GitHub for automated pipeline execution
+## Troubleshooting
 
-## Architecture Notes
+### Useful Commands
 
-**Service Communication:**
-- Services communicate via Kubernetes DNS
-- LoadBalancer services for external access
-- Port-forwarding used for local development access
-- Network policies restrict inter-pod communication
+```bash
+# Check all resources
+kubectl get all
 
-**Container Security:**
-- Non-root execution in all containers
-- Multi-stage builds minimize attack surface
-- Vulnerability scanning in CI pipeline
-- Resource limits and health checks configured
+# View events sorted by time
+kubectl get events --sort-by=.metadata.creationTimestamp
 
-**Scalability:**
-- Horizontal Pod Autoscaler configured
-- Stateless application design
-- Redis for shared state management
-- Resource requests/limits defined
+# Check HPA status
+kubectl get hpa backend-hpa
 
-## Known Limitations
+# View application logs
+kubectl logs -f deployment/backend-deployment
+kubectl logs -f deployment/prometheus-deployment
 
-- **Ingress**: Currently using LoadBalancer + port-forwarding instead of ingress controller
-- **AWS Deployment**: Terraform infrastructure exists but not yet tested
-- **Documentation**: `/docs` folder needs updating
+# Debug networking
+kubectl exec -it deployment/backend-deployment -- nslookup redis-service
+kubectl exec -it deployment/backend-deployment -- curl redis-service:6379
+
+# Check metrics endpoints
+kubectl exec -it deployment/backend-deployment -- curl localhost:5000/metrics
+kubectl exec -it deployment/backend-deployment -- curl localhost:5000/health
+```
+
+### Common Issues
+
+**Cannot connect to Kubernetes cluster**:
+```bash
+kubectl config get-contexts
+kubectl config use-context <your-context>
+kubectl get nodes
+```
+
+**PVC storage issues**:
+- Local clusters: Omit `storageClassName` (uses default)
+- AWS EKS: Use `storageClassName: gp3`
+
+**AWS EKS deployment problems**:
+- Check IAM permissions for EKS cluster creation
+- Verify AWS CLI credentials and region configuration
+- Review VPC and subnet configurations
+- Monitor AWS billing (it adds up fast)
+
+## Testing
+
+### Local Testing
+```bash
+cd app/backend
+python -m pytest test_app.py -v
+```
+
+### Integration Testing
+```bash
+# Start stack and run integration tests
+docker compose up -d
+./scripts/test-integration.sh
+```
+
+### Load Testing
+```bash
+# Test HPA scaling behavior
+kubectl run -i --tty load-generator --rm --image=busybox --restart=Never -- /bin/sh
+# Then run: while true; do wget -q -O- http://backend-service:5000/api/data; done
+```
+
+## Technology Stack
+
+### Application
+- **Frontend**: HTML5, CSS3, JavaScript, Nginx
+- **Backend**: Python 3.11, Flask, Gunicorn
+- **Cache/Storage**: Redis
+- **APIs**: RESTful with comprehensive health checks
+
+### Infrastructure
+- **Containers**: Docker with multi-stage builds
+- **Orchestration**: Kubernetes with proper resource management
+- **Cloud**: AWS EKS with VPC, ALB, Security Groups
+- **IaC**: Terraform for infrastructure provisioning
+
+### Monitoring & Observability
+- **Metrics**: Prometheus with custom exporters
+- **Visualization**: Grafana dashboards
+- **Logging**: Structured JSON logging
+- **Health Checks**: Liveness and readiness probes
+
+### CI/CD
+- **Version Control**: Git with feature branch workflow
+- **CI/CD**: GitHub Actions with comprehensive testing
+- **Registry**: GitHub Container Registry
+- **Security**: Vulnerability scanning, code quality checks
+
+## Future Enhancements
+
+**Completed Features**:
+- ✅ Complete Kubernetes deployment with HPA
+- ✅ Comprehensive monitoring stack
+- ✅ Security policies and container hardening
+- ✅ Automated CI/CD pipeline
+- ✅ AWS EKS support (painful but functional)
+
+**Potential Improvements**:
+- [ ] Service mesh implementation (Istio)
+- [ ] GitOps with ArgoCD
+- [ ] Chaos engineering experiments
+- [ ] SLI/SLO implementation with error budgets
+- [ ] Advanced alerting rules
+- [ ] Performance testing automation
+- [ ] Multi-region deployment
 
 ## Getting Started
 
 ### Prerequisites
 - Docker and Docker Compose
-- Kubernetes cluster (minikube, kind, or cloud)
-- kubectl configured for your cluster
+- Kubernetes cluster (local or AWS EKS)
+- kubectl configured for your target cluster
+- AWS CLI and credentials (for EKS deployment only)
 
-### Installation
+### Quick Installation
 
-1. Clone and start with Docker Compose:
+1. **Clone and start locally**:
 ```bash
 git clone https://github.com/Zaven-bot/sre-app.git
 cd sre-app
 docker compose up -d
 ```
 
-2. Verify services:
+2. **Verify services**:
 ```bash
 curl http://localhost:6000/health
 curl http://localhost:6000/api/data
 ```
 
-3. Deploy to Kubernetes:
+3. **Deploy to Kubernetes**:
 ```bash
 ./scripts/sre-app.sh up
 ./scripts/sre-app.sh access
 ```
 
-## Testing
+**Important**: Ensure your `kubectl` context is set to your desired cluster before deployment. Use `kubectl config get-contexts` to verify.
 
-Run tests locally:
-```bash
-cd app/backend
-python -m pytest test_app.py -v
-```
-
-Or use the automated CI/CD pipeline by pushing to GitHub.
-
-## Future Enhancements
-
-- Complete AWS EKS deployment with Terraform
-- Implement proper ingress controller setup
-- Extend monitoring with alerting rules
-- Add performance testing automation
-
-This project demonstrates production-ready DevOps practices suitable for real-world environments.
+This project demonstrates production-ready SRE practices while remaining accessible for learning and experimentation. The architecture showcases real-world complexity with comprehensive documentation for educational purposes.

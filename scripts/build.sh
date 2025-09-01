@@ -87,7 +87,7 @@ case "${1:-build}" in
         check_docker
         build_images
         ;;
-    cleanup)
+    clean)
         check_docker
         clean_build
         ;;

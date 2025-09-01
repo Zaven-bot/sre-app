@@ -166,7 +166,7 @@ spec:
   resources:
     requests:
       storage: 1Gi # 1 Gigabyte of space for dashboards
-  # storageClassName: gp3 # Production only
+  storageClassName: gp3  # AWS EBS
 
 ---
 apiVersion: v1

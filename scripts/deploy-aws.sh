@@ -7,9 +7,65 @@ set -e  # Exit on any error
 
 # Default variables
 ENVIRONMENT=${ENVIRONMENT:-dev}
-AWS_REGION=${AWS_REGION:-us-east-1}
+AWS_REGION=${AWS_REGION:-us-west-2}
 CLUSTER_NAME=${CLUSTER_NAME:-sre-learning-cluster}
 PROJECT_NAME=${PROJECT_NAME:-sre-learning}
+
+
+# Handle different command modes
+case "${1:-}" in
+    "destroy")
+        echo ""
+        echo "⚠️ This will destroy all AWS resources!"
+        read -p "Are you sure? Type 'yes' to confirm: " confirmation
+        if [ "$confirmation" = "yes" ]; then
+            kubectl delete -f temp-k8s/ 2>/dev/null || true
+            cd infra/aws
+            
+            # Build destroy vars (simplified)
+            DESTROY_VARS="-var=environment=${ENVIRONMENT}"
+            
+            terraform destroy $DESTROY_VARS -auto-approve
+            cd ../..
+            echo "✅ Resources destroyed"
+        else
+            echo "❌ Destruction cancelled"
+        fi
+        exit 0
+        ;;
+    "status")
+        kubectl get all
+        exit 0
+        ;;
+    "logs")
+        echo "--- Backend logs ---"
+        kubectl logs -l app=backend --tail=50
+        echo ""
+        echo "--- Frontend logs ---"
+        kubectl logs -l app=frontend --tail=50
+        exit 0
+        ;;
+    "help"|"--help"|"-h")
+        echo ""
+        echo "Usage: $0 [destroy|status|logs|help]"
+        echo "  (no args) - Deploy the application"
+        echo "  destroy   - Destroy all AWS resources"
+        echo "  status    - Show cluster status"
+        echo "  logs      - Show application logs"
+        echo "  help      - Show this help"
+        echo ""
+        echo "Environment variables:"
+        echo "  ENVIRONMENT=dev|production (default: dev)"
+        echo "  AWS_REGION=us-west-2 (default)"
+        echo "  CLUSTER_NAME=sre-learning-cluster (default)"
+        echo ""
+        echo "Examples:"
+        echo '  ./deploy-aws.sh                    # Cost-optimized dev deployment (~$78/month)'
+        echo '  ENVIRONMENT=production ./deploy-aws.sh # Production deployment (~$214/month)'
+        echo "  ./deploy-aws.sh destroy             # Destroy everything"
+        exit 0
+        ;;
+esac
 
 echo "🚀 Starting AWS EKS deployment for SRE App"
 echo "Environment: ${ENVIRONMENT}"
@@ -138,6 +194,11 @@ fi
 echo ""
 echo "☸️ Deploying to Kubernetes..."
 
+# Ensure gp3 StorageClass exists before deploying PVCs
+if ! kubectl get storageclass gp3 &>/dev/null; then
+  echo "Creating gp3 StorageClass..."
+  kubectl apply -f k8s/storageclass-gp3.yaml
+fi
 # Apply all manifests
 kubectl apply -f temp-k8s/
 
@@ -194,54 +255,3 @@ echo "  kubectl logs -l app=backend"
 echo "  kubectl logs -l app=frontend"
 echo "  kubectl port-forward svc/frontend-service 8080:80"
 echo "  kubectl port-forward svc/backend-service 5000:5000"
-
-# Handle different command modes
-case "${1:-}" in
-    "destroy")
-        echo ""
-        echo "⚠️ This will destroy all AWS resources!"
-        read -p "Are you sure? Type 'yes' to confirm: " confirmation
-        if [ "$confirmation" = "yes" ]; then
-            kubectl delete -f temp-k8s/ 2>/dev/null || true
-            cd infra/aws
-            
-            # Build destroy vars (simplified)
-            DESTROY_VARS="-var=environment=${ENVIRONMENT}"
-            
-            terraform destroy $DESTROY_VARS -auto-approve
-            cd ../..
-            echo "✅ Resources destroyed"
-        else
-            echo "❌ Destruction cancelled"
-        fi
-        ;;
-    "status")
-        kubectl get all
-        ;;
-    "logs")
-        echo "--- Backend logs ---"
-        kubectl logs -l app=backend --tail=50
-        echo ""
-        echo "--- Frontend logs ---"
-        kubectl logs -l app=frontend --tail=50
-        ;;
-    "help"|"--help"|"-h")
-        echo ""
-        echo "Usage: $0 [destroy|status|logs|help]"
-        echo "  (no args) - Deploy the application"
-        echo "  destroy   - Destroy all AWS resources"
-        echo "  status    - Show cluster status"
-        echo "  logs      - Show application logs"
-        echo "  help      - Show this help"
-        echo ""
-        echo "Environment variables:"
-        echo "  ENVIRONMENT=dev|production (default: dev)"
-        echo "  AWS_REGION=us-east-1 (default)"
-        echo "  CLUSTER_NAME=sre-learning-cluster (default)"
-        echo ""
-        echo "Examples:"
-        echo '  ./deploy-aws.sh                    # Cost-optimized dev deployment (~$78/month)'
-        echo '  ENVIRONMENT=production ./deploy-aws.sh # Production deployment (~$214/month)'
-        echo "  ./deploy-aws.sh destroy             # Destroy everything"
-        ;;
-esac

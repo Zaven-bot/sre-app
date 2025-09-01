@@ -6,7 +6,7 @@ terraform {
 }
 
 provider "aws" {
-  region = "us-east-1"
+  region = "us-west-2"
 }
 
 # Variables
@@ -29,10 +29,12 @@ data "aws_subnets" "default" {
 # ECR repositories
 resource "aws_ecr_repository" "backend" {
   name = "sre-app/backend"
+  force_delete = true
 }
 
 resource "aws_ecr_repository" "frontend" {
   name = "sre-app/frontend"
+  force_delete = true
 }
 
 # EKS cluster
@@ -75,12 +77,12 @@ resource "aws_eks_node_group" "main" {
   node_role_arn   = aws_iam_role.node_role.arn
   subnet_ids      = data.aws_subnets.default.ids
   
-  instance_types = ["t3.micro"]
+  instance_types = ["t3.small"]
   capacity_type  = "SPOT"
   disk_size      = 20  # GB - minimum for EKS
   
   scaling_config {
-    desired_size = 1
+    desired_size = 2
     max_size     = 2
     min_size     = 1
   }

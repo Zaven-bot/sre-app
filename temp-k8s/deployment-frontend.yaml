@@ -20,8 +20,8 @@ spec:
     spec:
       containers:
       - name: frontend
-        image: sre-learning-app-frontend:latest
-        imagePullPolicy: Never  # Use local images only
+        image: 263996557922.dkr.ecr.us-west-2.amazonaws.com/sre-app/frontend:latest
+        imagePullPolicy: Always  # Use local images only
         ports:
         - containerPort: 80
           name: http

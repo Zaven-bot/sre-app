@@ -199,7 +199,7 @@ spec:
   resources:
     requests:
       storage: 2Gi
-  # storageClassName: gp3 # Production only
+  storageClassName: gp3
 
 ---
 # Service Account for Prometheus to access Kubernetes API
