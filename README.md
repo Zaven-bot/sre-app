@@ -1,6 +1,12 @@
 # SRE Learning App
 
-A production-ready infrastructure project demonstrating comprehensive SRE and DevOps practices. During my time at Alegeus, I realized a big gap in my knowledge was understanding how my code went from my computer to helping real people. In order to bridge this gap in my understanding and to prepare myself to help at any part of the stack, this project implements a complete application stack with Flask backend, static frontend, Redis caching, and full observability through Prometheus and Grafana monitoring.
+What actually happens between `git push` and someone using your app?
+
+At Alegeus, I could build features that worked great locally, but I had no clue what happened after I shipped them. Where does the code go? How do you know if it's broken? What's all this Kubernetes stuff everyone talks about?
+
+I built this to figure it out. It's a Flask app with a frontend, Redis for caching, and monitoring with Prometheus and Grafana. Nothing groundbreaking haha—just a working example of how production infrastructure actually fits together.
+
+The interesting part isn't the app itself, it's everything around it: auto-scaling when traffic hits, health checks that catch problems, dashboards that show what's really happening, and deployment pipelines that don't break at random. Basically, all the stuff you need to know but somehow never learn until something goes wrong.
 
 ![Frontend](docs/screenshots/frontend-ui.png)
 
